@@ -1,201 +1,232 @@
-var products = JSON.parse(localStorage.getItem("products")); //null
 
-var productContainer = document.getElementById("product-table-container");
-var tableBody = document.getElementById("table-body");
-var warningMsg = document.getElementById('warning-msg');
-
-var currentEditIndex = null;
-
-function emptyOrNot() {
-    if (products && products.length !== 0) {
-        console.log("products are available");
-        productContainer.classList.remove('d-none');
-        productContainer.classList.add('d-block');
-        warningMsg.classList.add("d-none");
-        warningMsg.classList.remove("d-block");
-
-        // Clear the existing table body
-        tableBody.innerHTML = '';
-
-        // Create and append new rows
-        products.forEach((product, index) => {
-            var row = document.createElement('tr');
-
-            var cellIndex = document.createElement('th');
-            cellIndex.textContent = index + 1;
-            row.appendChild(cellIndex);
-
-            var cellName = document.createElement('td');
-            cellName.textContent = product.name;
-            row.appendChild(cellName);
-
-            var cellCategory = document.createElement('td');
-            cellCategory.textContent = product.cat;
-            row.appendChild(cellCategory);
-
-            var cellPrice = document.createElement('td');
-            cellPrice.textContent = product.price;
-            row.appendChild(cellPrice);
-
-            var cellDesc = document.createElement('td');
-            cellDesc.textContent = product.dec;
-            row.appendChild(cellDesc);
-
-            var cellEdit = document.createElement('td');
-            var editButton = document.createElement('button');
-            editButton.className = 'btn btn-outline-success';
-            editButton.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
-            editButton.onclick = function () { editProduct(index); };
-            cellEdit.appendChild(editButton);
-            row.appendChild(cellEdit);
-
-            var cellDelete = document.createElement('td');
-            var deleteButton = document.createElement('button');
-            deleteButton.className = 'btn btn-outline-danger';
-            deleteButton.innerHTML = '<i class="fa-solid fa-trash"></i>';
-            deleteButton.onclick = function () { deleteProduct(index); };
-            cellDelete.appendChild(deleteButton);
-            row.appendChild(cellDelete);
-
-            tableBody.appendChild(row);
-        });
-
-    } else {
-        warningMsg.classList.remove("d-none");
-        warningMsg.classList.add("d-block");
-        productContainer.classList.add("d-none");
-        productContainer.classList.remove("d-block");
+class Product {
+    constructor(name, category, price, description) {
+        this.name = name;
+        this.category = category;
+        this.price = price;
+        this.description = description;
     }
 }
 
-emptyOrNot();
-
-var productName = document.getElementById('product_name');
-var productCategory = document.getElementById('product_category');
-var productPrice = document.getElementById('product_price');
-var productDesc = document.getElementById('product_desc');
-var createBtn = document.getElementById("create-btn");
-var clearBtn = document.getElementById("clear-btn");
-var deleteBtn = document.getElementById("delete-btn");
-var productForm = document.getElementById("product-form");
-
-createBtn.onclick = function (event) {
-    event.preventDefault();
-
-    if (!productName.value || !productCategory.value || !productPrice.value || !productDesc.value) {
-        alert('All fields must be filled out.');
-        return;
-    }
-    if (!products) {
-        products = [];
+class ProductManager {
+    constructor() {
+        this.products = JSON.parse(localStorage.getItem("products")) || [];
+        this.currentEditIndex = null;
     }
 
-    var product = {
-        name: productName.value,
-        cat: productCategory.value,
-        price: productPrice.value,
-        dec: productDesc.value,
-    };
-
-    if (currentEditIndex !== null) {
-        products[currentEditIndex] = product;
-        currentEditIndex = null;
-        createBtn.textContent = 'Add Product';
-    } else {
-        products.push(product);
+    addProduct(product) {
+        if (this.currentEditIndex !== null) {
+            this.products[this.currentEditIndex] = product;
+            this.currentEditIndex = null;
+        } else {
+            this.products.push(product);
+        }
+        this.saveProducts();
     }
 
-    localStorage.setItem("products", JSON.stringify(products));
-    emptyOrNot();
-    clearForm();
-}
+    deleteProduct(index) {
+        this.products.splice(index, 1);
+        this.saveProducts();
+    }
 
-function clearForm() {
-    productName.value = '';
-    productCategory.value = '';
-    productPrice.value = '';
-    productDesc.value = '';
-}
+    editProduct(index) {
+        this.currentEditIndex = index;
+        return this.products[index];
+    }
 
-clearBtn.onclick = function (event) {
-    event.preventDefault();
-    if (productName.value == '' && productCategory.value == '' && productPrice.value == '' && productDesc.value == '') {
-        return;
-    } else {
-        clearForm();
+    searchProducts(query) {
+        return this.products.filter(product => product.name.toLowerCase().includes(query.toLowerCase()));
+    }
+
+    saveProducts() {
+        localStorage.setItem("products", JSON.stringify(this.products));
     }
 }
 
-function deleteProduct(index) {
-    products.splice(index, 1);
-    emptyOrNot();
-}
+class UI {
+    constructor(productManager) {
+        this.productManager = productManager;
+        this.productContainer = document.getElementById("product-table-container");
+        this.tableBody = document.getElementById("table-body");
+        this.warningMsg = document.getElementById('warning-msg');
+        this.productName = document.getElementById('product_name');
+        this.productCategory = document.getElementById('product_category');
+        this.productPrice = document.getElementById('product_price');
+        this.productDesc = document.getElementById('product_desc');
+        this.createBtn = document.getElementById("create-btn");
+        this.clearBtn = document.getElementById("clear-btn");
+        this.searchInput = document.getElementById("query");
 
-function editProduct(index) {
-    var product = products[index];
-    productName.value = product.name;
-    productCategory.value = product.cat;
-    productPrice.value = product.price;
-    productDesc.value = product.dec;
-    currentEditIndex = index;
-    createBtn.textContent = 'Update Product';
-}
+        this.createBtn.onclick = this.createOrUpdateProduct.bind(this);
+        this.clearBtn.onclick = this.clearForm.bind(this);
+        this.searchInput.onkeyup = this.searchProducts.bind(this);
 
-var searchInput = document.getElementById("query");
-// Listen to changes in search input
-searchInput.onkeyup = function () {
-    var value = searchInput.value.toLowerCase();
-    var filteredProducts = products.filter(product => product.name.toLowerCase().includes(value));
-
-    // Clear the existing table body
-    tableBody.innerHTML = '';
-
-    // Create and append new rows
-    filteredProducts.forEach((product, index) => {
-        var row = document.createElement('tr');
-
-        var cellIndex = document.createElement('th');
-        cellIndex.textContent = index + 1;
-        row.appendChild(cellIndex);
-
-        var cellName = document.createElement('td');
-        cellName.textContent = product.name;
-        row.appendChild(cellName);
-
-        var cellCategory = document.createElement('td');
-        cellCategory.textContent = product.cat;
-        row.appendChild(cellCategory);
-
-        var cellPrice = document.createElement('td');
-        cellPrice.textContent = product.price;
-        row.appendChild(cellPrice);
-
-        var cellDesc = document.createElement('td');
-        cellDesc.textContent = product.dec;
-        row.appendChild(cellDesc);
-
-        var cellEdit = document.createElement('td');
-        var editButton = document.createElement('button');
-        editButton.className = 'btn btn-outline-success';
-        editButton.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
-        editButton.onclick = function () { editProduct(index); };
-        cellEdit.appendChild(editButton);
-        row.appendChild(cellEdit);
-
-        var cellDelete = document.createElement('td');
-        var deleteButton = document.createElement('button');
-        deleteButton.className = 'btn btn-outline-danger';
-        deleteButton.innerHTML = '<i class="fa-solid fa-trash"></i>';
-        deleteButton.onclick = function () { deleteProduct(index); };
-        cellDelete.appendChild(deleteButton);
-        row.appendChild(cellDelete);
-
-        tableBody.appendChild(row);
-    });
-
-    if (filteredProducts.length === 0) {
-        alert("No Results");
-        emptyOrNot();
-        searchInput.value = "";
+        this.renderProductTable();
     }
-};
+
+    createOrUpdateProduct(event) {
+        event.preventDefault();
+
+        if (!this.productName.value || !this.productCategory.value || !this.productPrice.value || !this.productDesc.value) {
+            alert('All fields must be filled out.');
+            return;
+        }
+
+        const product = new Product(
+            this.productName.value,
+            this.productCategory.value,
+            this.productPrice.value,
+            this.productDesc.value
+        );
+
+        this.productManager.addProduct(product);
+        this.renderProductTable();
+        this.clearForm();
+    }
+
+    renderProductTable() {
+        if (this.productManager.products.length > 0) {
+            this.productContainer.classList.remove('d-none');
+            this.productContainer.classList.add('d-block');
+            this.warningMsg.classList.add("d-none");
+            this.warningMsg.classList.remove("d-block");
+
+            this.tableBody.innerHTML = '';
+
+            this.productManager.products.forEach((product, index) => {
+                const row = document.createElement('tr');
+
+                const cellIndex = document.createElement('th');
+                cellIndex.textContent = index + 1;
+                row.appendChild(cellIndex);
+
+                const cellName = document.createElement('td');
+                cellName.textContent = product.name;
+                row.appendChild(cellName);
+
+                const cellCategory = document.createElement('td');
+                cellCategory.textContent = product.category;
+                row.appendChild(cellCategory);
+
+                const cellPrice = document.createElement('td');
+                cellPrice.textContent = product.price;
+                row.appendChild(cellPrice);
+
+                const cellDesc = document.createElement('td');
+                cellDesc.textContent = product.description;
+                row.appendChild(cellDesc);
+
+                const cellEdit = document.createElement('td');
+                const editButton = document.createElement('button');
+                editButton.className = 'btn btn-outline-success';
+                editButton.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+                editButton.onclick = () => {
+                    const productToEdit = this.productManager.editProduct(index);
+                    this.fillForm(productToEdit);
+                    this.createBtn.textContent = 'Update Product';
+                };
+                cellEdit.appendChild(editButton);
+                row.appendChild(cellEdit);
+
+                const cellDelete = document.createElement('td');
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-outline-danger';
+                deleteButton.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                deleteButton.onclick = () => {
+                    this.productManager.deleteProduct(index);
+                    this.renderProductTable();
+                };
+                cellDelete.appendChild(deleteButton);
+                row.appendChild(cellDelete);
+
+                this.tableBody.appendChild(row);
+            });
+        } else {
+            this.warningMsg.classList.remove("d-none");
+            this.warningMsg.classList.add("d-block");
+            this.productContainer.classList.add("d-none");
+            this.productContainer.classList.remove("d-block");
+        }
+    }
+
+    fillForm(product) {
+        this.productName.value = product.name;
+        this.productCategory.value = product.category;
+        this.productPrice.value = product.price;
+        this.productDesc.value = product.description;
+    }
+
+    clearForm() {
+        this.productName.value = '';
+        this.productCategory.value = '';
+        this.productPrice.value = '';
+        this.productDesc.value = '';
+        this.createBtn.textContent = 'Add Product';
+    }
+
+    searchProducts() {
+        const query = this.searchInput.value.toLowerCase();
+        const filteredProducts = this.productManager.searchProducts(query);
+        this.tableBody.innerHTML = '';
+
+        if (filteredProducts.length > 0) {
+            filteredProducts.forEach((product, index) => {
+                const row = document.createElement('tr');
+
+                const cellIndex = document.createElement('th');
+                cellIndex.textContent = index + 1;
+                row.appendChild(cellIndex);
+
+                const cellName = document.createElement('td');
+                cellName.textContent = product.name;
+                row.appendChild(cellName);
+
+                const cellCategory = document.createElement('td');
+                cellCategory.textContent = product.category;
+                row.appendChild(cellCategory);
+
+                const cellPrice = document.createElement('td');
+                cellPrice.textContent = product.price;
+                row.appendChild(cellPrice);
+
+                const cellDesc = document.createElement('td');
+                cellDesc.textContent = product.description;
+                row.appendChild(cellDesc);
+
+                const cellEdit = document.createElement('td');
+                const editButton = document.createElement('button');
+                editButton.className = 'btn btn-outline-success';
+                editButton.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+                editButton.onclick = () => {
+                    const productToEdit = this.productManager.editProduct(index);
+                    this.fillForm(productToEdit);
+                    this.createBtn.textContent = 'Update Product';
+                };
+                cellEdit.appendChild(editButton);
+                row.appendChild(cellEdit);
+
+                const cellDelete = document.createElement('td');
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-outline-danger';
+                deleteButton.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                deleteButton.onclick = () => {
+                    this.productManager.deleteProduct(index);
+                    this.renderProductTable();
+                };
+                cellDelete.appendChild(deleteButton);
+                row.appendChild(cellDelete);
+
+                this.tableBody.appendChild(row);
+            });
+        } else {
+            alert("No Results");
+            this.renderProductTable();
+            this.searchInput.value = "";
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const productManager = new ProductManager();
+    new UI(productManager);
+});
